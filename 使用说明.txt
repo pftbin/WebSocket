@@ -1,0 +1,54 @@
+////////////////
+需boost库作为基础，boost库可从网络下载并编译
+////////////////
+
+
+.h文件中
+wsEndpoint::wsClient  *m_pClient;
+int  m_ClientId;
+
+.cpp文件中
+//定义两个回调函数--注：回调函数最好不要直接处理数据，将数据抛给主线程处理
+//处理服务端发送的消息
+void globalControlWebsocketMessage(websocketpp::connection_hdl hdl, void *parent, std::string msg)
+{
+#ifdef WIN32//注意：大部分传输都是UTF-8的，windows系统要转成ANSI
+        std::tstring activeMsg;
+        utf8_to_ansi(msg.c_str(), msg.length(), activeMsg);
+        msg = activeMsg;
+#endif
+        size_t len = msg.length();
+        _debug_to(_T("websocket msg[%d]: %s from %d"), static_cast<int>(len), msg.c_str(), hdl.lock().get());
+}
+
+//websocket连接状态改变的回调函数
+void globalControlWebsocketStatus(websocketpp::connection_hdl hdl, void *parent, std::string status)
+{
+        _debug_to(_T("websocket connect change to [%s] from %d"), status.c_str(), hdl.lock().get());
+        if (parent == nullptr) return;
+        cwSobeyxrserverControlWebsocket *pObject = reinterpret_cast<cwSobeyxrserverControlWebsocket*>(parent);
+        if (status == _T("Open")) {//连接上
+            //
+        } else if (status == _T("Failed") || status == _T("Closed")) {//断开
+           //
+        }
+}
+
+//创建：
+std::string uri = "ws://127.0.0.1:1234/test";
+m_pClient = new wsEndpoint::wsClient();
+m_ClientId = m_pClient->connect(uri, this, globalControlWebsocketMessage, globalControlWebsocketStatus);
+_debug_to(_T("Websocket创建连接开始，当前序号为%d"), m_ClientId);
+
+//发送消息
+std::string sendStr = "test";
+if (m_pClient) {
+   m_pClient->send(m_ClientId, sendStr);
+  _debug_to(_T("向设备[%s]发%s完成"), m_Name.c_str(), sendStr.c_str());
+}
+
+//销毁：
+if (m_pClient != nullptr) {
+       delete m_pClient;
+       m_pClient = nullptr;
+}
